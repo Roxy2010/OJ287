@@ -1,75 +1,130 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-OJ287 Light Curve Visualization with Disk Crossing Events
-Plots observational data and marks predicted disk crossing times
-from the CBwaves binary black hole model.
+OJ 287 Light Curve Plotter with Precession Model Overlay
+=========================================================
+Plots observed photometric data and overlays predicted outburst times
+from the precession model (disk crossing events from results.txt).
+
+Usage:
+    python plot_oj287_lightcurve.py
+
+The script will prompt for:
+    1. Path to TXT file with photometric data
+    2. Filter name (I, V, R, etc.) for the plot title
+
+File format:
+    Column 1: Julian Date (JD) - horizontal axis
+    Column 2: Magnitude (orange color)
+    Column 3: Magnitude (light blue color)
 """
 
-import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
-
+#* Mathematical imports
+import math
 import numpy as np
-import matplotlib.pyplot as plt
 import re
+
+#* Utility imports
+import os
+import sys
+import logging
 from pathlib import Path
 
-# === Configuration ===
-# Reference epoch: JD at model time = 0
-# Calibrated so that disk crossings align with known OJ287 outbursts
-# Based on Valtonen et al. papers: 2007 Sep outburst corresponds to crossing #16
-# Adjusted to match observed outburst at JD ~2454350 (Sep 2007)
-EPOCH_JD = 2415207.5  # Calibrated for OJ287
+#* Matplotlib imports
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
-# Additional known OJ287 outburst predictions from literature
-# These are added manually since the model time range may not cover them all
-ADDITIONAL_OUTBURSTS = [
-    {'year': 2019.57, 'jd': 2458666, 'label': 'July 2019', 'source': 'Valtonen+2019'},
-]
+#* Configure logging
+logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
 
-# === Parse observational data ===
-def parse_observations(filepath):
-    """Parse JD and magnitude from observation file (European number format)."""
-    jd_list = []
-    mag_list = []
+#* Matplotlib settings
+plt.rc('axes', labelsize=14)
+plt.rc('xtick', labelsize=12)
+plt.rc('ytick', labelsize=12)
+
+#! ============================================
+#! REFERENCE EPOCH - First observed outburst peak (t₀)
+#! ============================================
+T0_JD = 2454145.455  # Reference epoch: first disk crossing (2007.0)
+
+#! ============================================
+#! PATH TO RESULTS FILE FROM PRECESSION MODEL
+#! ============================================
+# This file contains disk crossing times from oj287_procession.py simulation
+RESULTS_FILE = None  # Will be auto-detected or specified
+
+
+def jd_to_calendar(jd):
+    """Convert JD to approximate calendar year."""
+    return 2000.0 + (jd - 2451545.0) / 365.25
+
+
+def calendar_to_jd(year_val):
+    """Convert calendar year to JD."""
+    return 2451545.0 + (year_val - 2000.0) * 365.25
+
+
+def find_results_file():
+    """Find the most recent results.txt file from precession simulation."""
+    script_dir = Path(__file__).parent
+    base_dir = script_dir.parent
+    data_dir = base_dir / "data"
     
-    with open(filepath, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+    if not data_dir.exists():
+        return None
     
-    for line in lines[2:]:  # Skip header lines
-        line = line.strip()
-        if not line:
-            continue
-        
-        # Split by whitespace
-        parts = line.split()
-        if len(parts) >= 2:
-            try:
-                # Convert European format (comma as decimal separator)
-                jd = float(parts[0].replace(',', '.'))
-                mag = float(parts[1].replace(',', '.'))
-                jd_list.append(jd)
-                mag_list.append(mag)
-            except ValueError:
-                # Skip lines with missing or invalid data
-                continue
-        elif len(parts) == 1:
-            # Some lines might have only JD without mag
-            continue
+    # Find all OJ287_precession_* directories
+    dirs = sorted(data_dir.glob("OJ287_precession_*"), reverse=True)
     
-    return np.array(jd_list), np.array(mag_list)
+    for d in dirs:
+        results_file = d / "results.txt"
+        if results_file.exists():
+            return results_file
+    
+    return None
 
 
-def parse_disk_crossings(filepath):
-    """Parse disk crossing events from results.txt file."""
+def parse_disk_crossings_from_results(filepath):
+    """
+    Parse disk crossing events from results.txt file.
+    
+    The results.txt contains crossing times in years from simulation start.
+    We map the FIRST crossing to t₀ = JD 2454145.455, then calculate
+    all other crossings relative to it.
+    
+    Parameters:
+    -----------
+    filepath : str or Path
+        Path to results.txt file
+    
+    Returns:
+    --------
+    list of dict
+        Disk crossing events with JD, year, direction
+    """
     crossings = []
     
-    with open(filepath, 'r') as f:
-        content = f.read()
+    try:
+        with open(filepath, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        logging.error(f"Error reading results file: {e}")
+        return []
     
-    # Find the table section
+    # Parse the table: #   Time Before    Time After   Direction    Separation     Orbit #
+    # Pattern to match table rows like:
+    #    1      6.757200      6.760800          up       70.9671      0.5633
     pattern = r'\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+(up|down)\s+([\d.]+)\s+([\d.]+)'
     matches = re.findall(pattern, content)
     
+    if not matches:
+        logging.warning("No disk crossings found in results file")
+        return []
+    
+    # Parse all crossings
+    raw_crossings = []
     for match in matches:
         crossing_num = int(match[0])
         time_before = float(match[1])
@@ -78,9 +133,9 @@ def parse_disk_crossings(filepath):
         separation = float(match[4])
         orbit_num = float(match[5])
         
-        # Average time for the crossing
+        # Average time for the crossing (in years from simulation start)
         avg_time = (time_before + time_after) / 2
-        crossings.append({
+        raw_crossings.append({
             'num': crossing_num,
             'time_years': avg_time,
             'direction': direction,
@@ -88,170 +143,409 @@ def parse_disk_crossings(filepath):
             'orbit': orbit_num
         })
     
+    if not raw_crossings:
+        return []
+    
+    # IMPORTANT: Map first crossing to t₀ = JD 2454145.455
+    # All other crossings are calculated relative to this
+    first_crossing_time = raw_crossings[0]['time_years']
+    
+    logging.info(f"First crossing in model at t = {first_crossing_time:.3f} years")
+    logging.info(f"Mapping to t₀ = JD {T0_JD:.3f}")
+    
+    for c in raw_crossings:
+        # Time difference from first crossing (in years)
+        delta_t = c['time_years'] - first_crossing_time
+        # Convert to JD relative to t₀
+        c['jd'] = T0_JD + delta_t * 365.25
+        c['year'] = jd_to_calendar(c['jd'])
+        crossings.append(c)
+    
+    logging.info(f"Parsed {len(crossings)} disk crossings from results file")
+    
     return crossings
 
 
-def model_time_to_jd(time_years, epoch_jd=EPOCH_JD):
-    """Convert model time (years) to Julian Date."""
-    return epoch_jd + time_years * 365.25
+def calculate_disk_crossings_analytical(num_crossings=30):
+    """
+    Calculate disk crossing times using analytical approximation
+    when results.txt is not available.
+    
+    Uses typical OJ 287 orbital parameters (~12 year period).
+    First crossing is at t₀ = JD 2454145.455.
+    
+    Parameters:
+    -----------
+    num_crossings : int
+        Number of crossings to generate
+    
+    Returns:
+    --------
+    list of dict
+        Disk crossing events with JD, year, and direction
+    """
+    logging.info("Using analytical approximation for disk crossings...")
+    logging.info(f"Reference epoch t₀ = JD {T0_JD:.3f}")
+    
+    # Typical intervals from OJ 287 model (from results.txt pattern)
+    # Crossings alternate: ~6.8 years, ~6.4 years, ~7.0 years, etc.
+    # Average ~6.7 years between crossings (2 per ~12 year orbit)
+    intervals = [6.8, 6.4, 7.0, 6.2, 7.1, 6.4, 6.8, 6.8, 6.8, 6.8, 6.4, 7.0, 6.3, 7.0, 6.4, 6.8]
+    
+    crossings = []
+    
+    # First crossing at t₀
+    crossings.append({
+        'jd': T0_JD,
+        'year': jd_to_calendar(T0_JD),
+        'direction': 'up',
+        'num': 1
+    })
+    
+    # Generate forward crossings
+    current_jd = T0_JD
+    direction = 'up'
+    for i in range(num_crossings):
+        interval = intervals[i % len(intervals)] * 365.25  # Convert years to days
+        current_jd += interval
+        direction = 'down' if direction == 'up' else 'up'
+        crossings.append({
+            'jd': current_jd,
+            'year': jd_to_calendar(current_jd),
+            'direction': direction,
+            'num': len(crossings) + 1
+        })
+    
+    # Generate backward crossings
+    current_jd = T0_JD
+    direction = 'up'
+    for i in range(num_crossings):
+        interval = intervals[i % len(intervals)] * 365.25
+        current_jd -= interval
+        direction = 'down' if direction == 'up' else 'up'
+        crossings.insert(0, {
+            'jd': current_jd,
+            'year': jd_to_calendar(current_jd),
+            'direction': direction,
+            'num': 0
+        })
+    
+    # Re-number crossings
+    for i, c in enumerate(crossings):
+        c['num'] = i + 1
+    
+    return crossings
 
 
-def jd_to_calendar(jd):
-    """Convert JD to approximate calendar year."""
-    return 2000.0 + (jd - 2451545.0) / 365.25
+def read_photometric_data(filepath):
+    """
+    Read photometric data from TXT file.
+    Format: JD, Magnitude1, Magnitude2
+    Supports both European (comma) and American (dot) decimal separators.
+    Handles missing values (empty or "-") correctly.
+    
+    Parameters:
+    -----------
+    filepath : str
+        Path to data file
+    
+    Returns:
+    --------
+    tuple
+        (jd, mag1, mag2) numpy arrays, or (None, None, None) on error
+        mag2 will have NaN where values are missing
+    """
+    jd = []
+    mag1 = []
+    mag2 = []
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # Skip header lines (first line or lines starting with #)
+        start_idx = 0
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                # Check if this line looks like data (starts with a number)
+                parts = [p for p in line.split() if p]
+                if len(parts) >= 2:
+                    try:
+                        float(parts[0].replace(',', '.'))
+                        # Check if second part is a number (not header text)
+                        test_val = parts[1].replace(',', '.')
+                        if test_val != '-':
+                            float(test_val)
+                        start_idx = i
+                        break
+                    except ValueError:
+                        continue
+        
+        for line in lines[start_idx:]:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            parts = [p for p in line.split() if p]
+            if len(parts) >= 2:
+                try:
+                    # Convert European format (comma as decimal separator)
+                    jd_val = float(parts[0].replace(',', '.'))
+                    
+                    # Parse second column (mag1)
+                    mag1_str = parts[1].replace(',', '.')
+                    if mag1_str == '-' or mag1_str == '':
+                        mag1_val = np.nan
+                    else:
+                        mag1_val = float(mag1_str)
+                    
+                    # Parse third column (mag2) if exists
+                    if len(parts) >= 3:
+                        mag2_str = parts[2].replace(',', '.')
+                        if mag2_str == '-' or mag2_str == '':
+                            mag2_val = np.nan
+                        else:
+                            mag2_val = float(mag2_str)
+                    else:
+                        mag2_val = np.nan  # No third column
+                    
+                    jd.append(jd_val)
+                    mag1.append(mag1_val)
+                    mag2.append(mag2_val)
+                    
+                except ValueError:
+                    continue
+                    
+    except FileNotFoundError:
+        logging.error(f"File not found: {filepath}")
+        return None, None, None
+    except Exception as e:
+        logging.error(f"Error reading file: {e}")
+        return None, None, None
+    
+    if len(jd) == 0:
+        logging.error("No valid data found in file!")
+        return None, None, None
+    
+    # Convert to numpy arrays
+    jd = np.array(jd)
+    mag1 = np.array(mag1)
+    mag2 = np.array(mag2)
+    
+    # Count valid points
+    valid_mag1 = np.sum(~np.isnan(mag1))
+    valid_mag2 = np.sum(~np.isnan(mag2))
+    logging.info(f"Valid mag1 points (стовп. 2): {valid_mag1}")
+    logging.info(f"Valid mag2 points (стовп. 3): {valid_mag2}")
+    
+    return jd, mag1, mag2
 
 
-def find_latest_data_dir(base_dir):
-    """Find the most recent OJ287_precession_* directory."""
-    data_dir = base_dir / "data"
-    dirs = sorted(data_dir.glob("OJ287_precession_*"), reverse=True)
-    if not dirs:
-        raise FileNotFoundError(f"No OJ287_precession_* directories found in {data_dir}")
-    return dirs[0]
+def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_lightcurve.png'):
+    """
+    Plot the light curve with model predictions.
+    
+    Parameters:
+    -----------
+    jd : array
+        Julian Dates
+    mag1 : array
+        First magnitude column
+    mag2 : array
+        Second magnitude column
+    filter_name : str
+        Filter name for title
+    crossings : list of dict
+        Disk crossing events with 'jd' and 'direction'
+    output_file : str
+        Output filename
+    """
+    fig, ax = plt.subplots(figsize=(16, 9))
+    
+    # Set white background
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
+    
+    # Sort data by JD
+    sort_idx = np.argsort(jd)
+    jd_sorted = jd[sort_idx]
+    mag1_sorted = mag1[sort_idx]
+    mag2_sorted = mag2[sort_idx]
+    
+    # Plot photometric data with different colors
+    # Стовпчик 2 (mag1 в коді) - помаранчева
+    valid_mag1 = ~np.isnan(mag1_sorted)
+    ax.scatter(jd_sorted[valid_mag1], mag1_sorted[valid_mag1], c='#ff6600', s=25, alpha=0.8, 
+               edgecolors='black', linewidths=0.3, label='Стовпчик 2', zorder=3)
+    # Стовпчик 3 (mag2 в коді) - ніжно голубий, малюється зверху
+    valid_mag2 = ~np.isnan(mag2_sorted)
+    ax.scatter(jd_sorted[valid_mag2], mag2_sorted[valid_mag2], c='#87CEEB', s=30, alpha=0.9, 
+               edgecolors='black', linewidths=0.4, label='Стовпчик 3', zorder=4)
+    
+    # Invert y-axis (standard for magnitude plots: brighter = smaller magnitude = higher on plot)
+    ax.invert_yaxis()
+    
+    # Get plot limits
+    jd_min, jd_max = jd.min(), jd.max()
+    jd_range = jd_max - jd_min
+    ax.set_xlim(jd_min - 0.02 * jd_range, jd_max + 0.02 * jd_range)
+    
+    # Plot vertical lines for model disk crossings (all green)
+    crossing_color = '#00ff00'  # Bright green for all crossings
+    
+    t0_plotted = False
+    for c in crossings:
+        t_cross = c['jd']
+        if jd_min - 0.1 * jd_range <= t_cross <= jd_max + 0.1 * jd_range:
+            if abs(t_cross - T0_JD) < 1:  # Reference epoch t₀ (thicker line)
+                ax.axvline(x=t_cross, color=crossing_color, linestyle='-', 
+                          linewidth=3.5, alpha=0.95, zorder=2)
+                t0_plotted = True
+            else:
+                # All other crossings - same green color
+                ax.axvline(x=t_cross, color=crossing_color, linestyle='-', 
+                          linewidth=2.0, alpha=0.7, zorder=2)
+    
+    # Add secondary x-axis with calendar years
+    ax2 = ax.secondary_xaxis('top', functions=(jd_to_calendar, calendar_to_jd))
+    ax2.set_xlabel('Рік', fontsize=14, color='black', fontweight='bold')
+    ax2.tick_params(axis='x', colors='black', labelsize=11)
+    
+    # Style spines (black)
+    for spine in ax.spines.values():
+        spine.set_color('black')
+        spine.set_linewidth(1.5)
+    for spine in ax2.spines.values():
+        spine.set_color('black')
+        spine.set_linewidth(1.5)
+    
+    # Labels and title
+    ax.set_xlabel('Юліанська дата (JD)', fontsize=14, color='black', fontweight='bold')
+    ax.set_ylabel(f'Магнітуда ({filter_name})', fontsize=14, color='black', fontweight='bold')
+    ax.set_title(f'Крива блиску OJ 287 — Фільтр: {filter_name}\n'
+                f'Модельні моменти проходження акреційного диска (t₀ = JD {T0_JD:.3f})', 
+                fontsize=16, color='black', fontweight='bold', pad=20)
+    
+    # Grid
+    ax.grid(True, alpha=0.3, color='gray', linestyle='-', linewidth=0.5)
+    ax.tick_params(axis='both', colors='black', labelsize=11)
+    
+    # Legend
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', markerfacecolor='#ff6600', 
+               markersize=10, label='Магнітуда (стовп. 2)', linestyle='None'),
+        Line2D([0], [0], marker='o', color='w', markerfacecolor='#87CEEB', 
+               markersize=10, label='Магнітуда (стовп. 3)', linestyle='None'),
+        Line2D([0], [0], color='#00ff00', linewidth=3.0, 
+               label=f't₀ = JD {T0_JD:.3f}'),
+        Line2D([0], [0], color='#00ff00', linewidth=2.0, linestyle='-',
+               label='Проходження диска'),
+    ]
+    legend = ax.legend(handles=legend_elements, loc='upper right', 
+                      fontsize=10, facecolor='white', edgecolor='black',
+                      labelcolor='black')
+    
+    fig.tight_layout()
+    plt.savefig(output_file, dpi=150, facecolor=fig.get_facecolor(), 
+                edgecolor='none', bbox_inches='tight')
+    plt.close()
+    
+    logging.info(f"Light curve saved: {output_file}")
+    return output_file
 
 
 def main():
-    # File paths
-    script_dir = Path(__file__).parent
-    base_dir = script_dir.parent
+    """Main function."""
+    print("=" * 60)
+    print("OJ 287 LIGHT CURVE PLOTTER")
+    print("with Precession Model Disk Crossing Predictions")
+    print("=" * 60)
+    print()
+    print(f"Reference epoch t₀ = JD {T0_JD:.3f}")
+    print()
     
-    # Auto-detect latest data directory
-    data_subdir = find_latest_data_dir(base_dir)
-    print(f"Using data directory: {data_subdir.name}")
+    # Ask for input file path
+    filepath = input("Введіть шлях до файлу з фотометричними даними (TXT): ").strip()
+    if not filepath:
+        print("Помилка: Не вказано шлях до файлу!")
+        sys.exit(1)
     
-    obs_file = Path("/Users/kinnamou/Desktop/I фільтр .txt")
-    results_file = data_subdir / "results.txt"
+    # Expand user home directory if needed
+    filepath = os.path.expanduser(filepath)
     
-    # Parse data
-    print("Reading observational data...")
-    jd_obs, mag_obs = parse_observations(obs_file)
-    print(f"  Loaded {len(jd_obs)} observations")
-    print(f"  JD range: {jd_obs.min():.1f} - {jd_obs.max():.1f}")
-    print(f"  Year range: {jd_to_calendar(jd_obs.min()):.1f} - {jd_to_calendar(jd_obs.max()):.1f}")
-    print(f"  Magnitude range: {mag_obs.min():.2f} - {mag_obs.max():.2f}")
+    if not os.path.isfile(filepath):
+        print(f"Помилка: Файл не знайдено: {filepath}")
+        sys.exit(1)
     
-    print("\nReading disk crossing data...")
-    crossings = parse_disk_crossings(results_file)
-    print(f"  Found {len(crossings)} disk crossing events")
+    # Ask for filter name
+    filter_name = input("Введіть назву фільтра (I, V, R, B тощо): ").strip()
+    if not filter_name:
+        filter_name = "Unknown"
     
-    # Convert crossing times to JD
-    for c in crossings:
-        c['jd'] = model_time_to_jd(c['time_years'])
-        c['year'] = jd_to_calendar(c['jd'])
+    print()
+    logging.info(f"Читання даних з: {filepath}")
+    logging.info(f"Фільтр: {filter_name}")
     
-    # Filter crossings to observation range (with larger margin to show more events)
-    jd_min, jd_max = jd_obs.min() - 1000, jd_obs.max() + 500
-    visible_crossings = [c for c in crossings if jd_min <= c['jd'] <= jd_max]
+    # Read photometric data
+    jd, mag1, mag2 = read_photometric_data(filepath)
     
-    print(f"\nDisk crossings in observation window:")
-    for c in visible_crossings:
-        print(f"  #{c['num']}: JD {c['jd']:.1f} ({c['year']:.2f}) - {c['direction']}")
+    if jd is None:
+        print("Помилка: Не вдалося прочитати фотометричні дані!")
+        sys.exit(1)
     
-    # === Create the plot ===
-    fig, ax = plt.subplots(figsize=(16, 9))
+    logging.info(f"Прочитано {len(jd)} точок даних")
+    logging.info(f"Діапазон JD: {jd.min():.3f} — {jd.max():.3f}")
+    logging.info(f"Діапазон років: {jd_to_calendar(jd.min()):.1f} — {jd_to_calendar(jd.max()):.1f}")
     
-    # Set dark background for dramatic effect
-    fig.patch.set_facecolor('#0a0a1a')
-    ax.set_facecolor('#0a0a1a')
+    # Calculate disk crossings from precession model
+    logging.info("Обчислення моментів проходження диска з моделі прецесії...")
     
-    # Sort observations by JD for plotting
-    sort_idx = np.argsort(jd_obs)
-    jd_sorted = jd_obs[sort_idx]
-    mag_sorted = mag_obs[sort_idx]
+    # First try to find and read results.txt from precession simulation
+    results_file = find_results_file()
+    crossings = []
     
-    # Convert JD to years for x-axis
-    years_obs = jd_to_calendar(jd_sorted)
+    if results_file:
+        logging.info(f"Знайдено файл результатів: {results_file}")
+        crossings = parse_disk_crossings_from_results(results_file)
     
-    # Plot disk crossing events FIRST (behind data)
-    # Get y-axis limits based on data
-    mag_min, mag_max = mag_sorted.min() - 0.3, mag_sorted.max() + 0.3
+    if len(crossings) == 0:
+        logging.warning("Файл results.txt не знайдено або порожній. Використовую аналітичну модель.")
+        crossings = calculate_disk_crossings_analytical(40)
     
-    # Single color for all crossings
-    crossing_color = '#00ffcc'
+    logging.info(f"Модель передбачає {len(crossings)} проходжень диска")
     
-    for c in visible_crossings:
-        year = c['year']
-        
-        # Draw vertical line for disk crossing
-        ax.axvline(x=year, color=crossing_color, alpha=0.7, linestyle='-', linewidth=2.5, zorder=1)
+    # Filter crossings within data range (with margin)
+    jd_margin = 0.15 * (jd.max() - jd.min())
+    crossings_in_range = [c for c in crossings 
+                         if jd.min() - jd_margin <= c['jd'] <= jd.max() + jd_margin]
+    logging.info(f"Проходження в межах графіка: {len(crossings_in_range)}")
     
-    # Plot observations as scatter points
-    scatter = ax.scatter(years_obs, mag_sorted, 
-                        c=mag_sorted, cmap='plasma_r',
-                        s=35, alpha=0.85, edgecolors='white', linewidths=0.4,
-                        zorder=3, label='Спостереження (I фільтр)')
+    # Generate output filename
+    base_name = os.path.splitext(os.path.basename(filepath))[0]
+    output_file = f"OJ287_lightcurve_{base_name}_{filter_name}.png"
     
-    # Plot additional known outbursts from literature (same style as model crossings)
-    for outburst in ADDITIONAL_OUTBURSTS:
-        year = outburst['year']
-        ax.axvline(x=year, color=crossing_color, alpha=0.7, linestyle='-', linewidth=2.5, zorder=1)
+    # Plot
+    plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file)
     
-    # Add colorbar
-    cbar = plt.colorbar(scatter, ax=ax, pad=0.02)
-    cbar.set_label('Магнітуда', fontsize=12, color='white')
-    cbar.ax.yaxis.set_tick_params(color='white')
-    plt.setp(plt.getp(cbar.ax.axes, 'yticklabels'), color='white')
+    # Print crossing times
+    print()
+    print("=" * 70)
+    print("МОМЕНТИ ПРОХОДЖЕННЯ ДИСКА (Модельні передбачення)")
+    print("=" * 70)
+    print(f"{'JD':<16} {'Рік':<10} {'Δt від t₀ (роки)':<18} {'Напрямок':<10}")
+    print("-" * 70)
     
-    # Style the plot
-    ax.set_xlabel('Рік', fontsize=14, color='white', fontweight='bold')
-    ax.set_ylabel('Магнітуда (I фільтр)', fontsize=14, color='white', fontweight='bold')
-    ax.set_title('Крива блиску OJ 287 та моменти проходження акреційного диску\n'
-                'Binary Black Hole Model - CBwaves', 
-                fontsize=16, color='white', fontweight='bold', pad=20)
+    for c in sorted(crossings, key=lambda x: x['jd']):
+        if jd.min() - jd_margin <= c['jd'] <= jd.max() + jd_margin:
+            delta_t = (c['jd'] - T0_JD) / 365.25
+            direction = c.get('direction', '?')
+            marker = " <-- t₀" if abs(c['jd'] - T0_JD) < 1 else ""
+            direction_ukr = "вгору" if direction == 'up' else "вниз" if direction == 'down' else "?"
+            print(f"{c['jd']:<16.3f} {c['year']:<10.2f} {delta_t:<+18.2f} {direction_ukr:<10}{marker}")
     
-    # Set y-axis limits (inverted: higher values at bottom = fainter)
-    ax.set_ylim(mag_max + 0.2, mag_min - 0.2)
-    
-    # Add secondary x-axis for JD
-    ax2 = ax.secondary_xaxis('top', functions=(
-        lambda x: 2451545.0 + (x - 2000.0) * 365.25,  # year to JD
-        lambda jd: 2000.0 + (jd - 2451545.0) / 365.25  # JD to year
-    ))
-    ax2.set_xlabel('Юліанська дата (JD)', fontsize=12, color='white', fontweight='bold')
-    ax2.tick_params(axis='x', colors='white', labelsize=10)
-    
-    # Grid
-    ax.grid(True, alpha=0.2, color='white', linestyle='-', linewidth=0.5)
-    
-    # Spine colors
-    for spine in ax.spines.values():
-        spine.set_color('white')
-        spine.set_linewidth(1.5)
-    for spine in ax2.spines.values():
-        spine.set_color('white')
-        spine.set_linewidth(1.5)
-    
-    # Tick colors
-    ax.tick_params(axis='both', colors='white', labelsize=11)
-    
-    # Legend
-    from matplotlib.lines import Line2D
-    legend_elements = [
-        Line2D([0], [0], marker='o', color='w', markerfacecolor='#ff9500', 
-               markersize=10, label='Спостереження (I фільтр)', linestyle='None'),
-        Line2D([0], [0], color='#00ffcc', linewidth=2.5, alpha=0.7,
-               label='Проходження диску'),
-    ]
-    legend = ax.legend(handles=legend_elements, loc='lower right', 
-                      fontsize=10, facecolor='#1a1a2e', edgecolor='white',
-                      labelcolor='white')
-    
-    # Add info text
-    info_text = f"Епоха моделі: JD {EPOCH_JD:.1f}\nОрбітальний період: ~12 років"
-    ax.text(0.02, 0.02, info_text, transform=ax.transAxes,
-            fontsize=9, color='#888888', va='bottom', ha='left',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='#0a0a1a', 
-                     edgecolor='#444444', alpha=0.9))
-    
-    plt.tight_layout()
-    
-    # Save figure
-    output_path = data_subdir / "OJ287_lightcurve_with_crossings.png"
-    plt.savefig(output_path, dpi=150, facecolor=fig.get_facecolor(), edgecolor='none',
-                bbox_inches='tight')
-    print(f"\nPlot saved to: {output_path}")
-    
-    plt.close(fig)
+    print("=" * 70)
+    print(f"\nГотово! Крива блиску збережена у: {output_file}")
 
 
 if __name__ == '__main__':
