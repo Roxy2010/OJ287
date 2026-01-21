@@ -1,0 +1,245 @@
+.TH "cbwaves - Compact Binary Waves" 1 2011.06.01
+.SH NAME
+cbwaves \- The cbwaves software calculates the gravitational waves emitted \
+by generic configuration compact binary objects
+.SH SYNOPSIS
+.B cbwaves cbwaves.ini
+.SH DESCRIPTION
+The cbwaves software calculates the gravitational waves emitted by generic \
+binary neutron stars (BNSs) or binary black holes (BBHs) ---  with arbitrary \ 
+orientation of the spins and with arbitrary of value the eccentricity --- by \ 
+direct integration of the equation of motion of the bodies. The waveforms are \ 
+calculated in time domain and they also can be determined in frequency domain \ 
+by using the implemented FFT. CBwaves does also provide the spin weighted
+spherical harmonics expansion of the radiative field. The various initial \ 
+parameters and settings are controlled in the .ini file (see also below).
+
+.SH CONFIGURATION
+A more detailed description of the applied method, the implemented formulas and \ 
+specifications of the parameters is provided by cbwaves-desc.pdf located in the \ 
+doc directory. A sample .ini file can also be found in the etc directory which \ 
+has the structure as indicated below.
+ 
+A sample .ini file with brief outline of the applied variables:
+.IP 
+
+.br
+[output]
+.br
+outfile = /tmp/mywaveform.dat     # output filename
+.br
+ftfile = /tmp/mywaveform.ft       # file for the Fourier-transformed
+.br
+outvars = t,orbits,h_+,h_x,h      # variables to output 
+                                  # --- the comprehensive list of all the possible choices is below ---
+.br
+[input]
+.br
+m1        = 2000          # mass of first star [m]
+.br
+m2        = 2000          # mass of lighter star [m]
+.br
+tmax      = 10e5          # maximum evolution time [s]
+.br
+orbitsmax = 10e5          # maximum number of revolutions
+                          #  --- the code stops when the value of "tmax" or "orbitsmax" has achieved ---
+.br
+T         = 0.05          # initial orbit time [s]
+.br
+f         = 18            # initial orbiting frequency [1/s] 
+                          # --- Its value is at will. (In this particular choice 18x2<=40 Hz holds.) ---
+.br
+dt        = 1e-05         # initial RK4 time step [s]
+.br
+epsilon   = 0.4           # initial eccentricity
+.br
+rmin      = 101574.6      # final alloved minimal separation [m]
+.br
+rmax      = 12201574.6      # final alloved maximal separation [m] (for open orbits)
+.br
+r         = 304041.04 1   # initial separation [m]
+.br
+D         = 2.468e+23     # distance to observer [m]
+.br
+iota      = 90            # polar angle in the source frame [degree]
+.br
+phi       = 0             # polar angle in the source frame [degree]
+.br
+theta     = 0             # polar angle between the TT and the detector frame [degree]
+.br
+varphi    = 0             # polar angle between the TT and the detector frame [degree]
+.br
+psi       = 0             # polar angle between the TT and the detector frame [degree]
+.br
+s1x       = 0             # spin1 x component of m1
+.br
+s1y       = 0             # spin1 y component of m1
+.br
+s1z       = 0             # spin1 z component of m1
+.br
+s2x       = 0             # spin2 x component of m2
+.br
+s2y       = 0             # spin2 y component of m2
+.br
+s2z       = 0             # spin2 z component of m2
+.br
+hterms    = "Q", "P05Q", "PQ", "P15Q", "P15Qtail", "PQSO", "P15QSO", "P2Q", "PQSS"
+.br
+                         # the applied PN order of the waveform 
+                           can be choosen by specifying these terms
+.br
+corrs     = "PN", "2PN", "SO", "SS", "RR", "PNSO", "3PN", "1RR", "2PNSO", "RRSO", "RRSS"
+.br
+                         # the applied PN order of the motion 
+                           can be choosen by specifying these terms
+.br
+printstep = 4            # print output variables only after printstep integration step
+                           printstep = 0 results no output 
+.br
+printorbit= 0            # print output variables only after printorbit orbit
+                           printorbit = 0 results no output
+.br
+loglevel  = 3             # verbosity level ranges from 0 (none) 6 (all)
+
+.br
+checkpoint= yes          # in case you want to checkpoint intermediate 
+                           status of evolution
+.br
+desc      = testrun      # "human readable" description of the run
+
+.SH CONFIGURATION DETAILS
+.P 
+The spin of the objects is s_A, where A = 1,2 and s_A = sqrt(s_Ax^2+s_Ay^2+s_Az^2). For a black 
+hole 0. < s_A < 1, for most neutron star models 0 < s_A < 0.7
+.P
+The Euler angles varphi, theta, psi are the angles containing the relation between the TT 
+and the detector frame.
+.P
+The comprehensive list of all the possible choices for the output, i.e. the "outvars" configuration \ variables --- they have to be separated by comma in the corresponding list --- are as:
+
+.IP
+.br
+t             # the time
+.br
+orbits        # number of orbits
+.br
+orbfreq       # orbital frequency
+.br
+rx            # relative distance in x direction
+.br
+ry            # relative distance in y direction
+.br
+rz            # relative distance in z direction
+.br
+h_+           # the plus polarisation
+.br
+h_x           # the cross polarisation
+.br 
+h             # the measured strain
+.br
+E_N           # Newtonian energy
+.br
+E_tot         # total energy
+.br 
+E_PNtot       # total energy minus the Newtonian energy
+.br
+E_rad         # the energy radiated by the system
+.br 
+x1            # x coordinate of m1
+.br
+y1            # y coordinate of m1
+.br
+z1            # z coordinate of m1
+.br 
+x2            # x coordinate of m2
+.br
+y2            # y coordiante of m2
+.br
+z2            # z coordinate of m2
+.br
+hp22          # spin weighted (s=-2) spherical decomposition of h+ with l,m = 2,2  
+.br
+hp21          # spin weighted (s=-2) spherical decomposition of h+ with l,m = 2,1 
+.br
+hp20          # spin weighted (s=-2) spherical decomposition of h+ with l,m = 2,0 
+.br
+hp2m1         # spin weighted (s=-2) spherical decomposition of h+ with l,m = 2,-1
+.br
+hp2m2         # spin weighted (s=-2) spherical decomposition of h+ with l,m = 2,-2
+.br
+hx22          # spin weighted (s=-2) spherical decomposition of hx with l,m = 2,2
+.br
+hx21          # spin weighted (s=-2) spherical decomposition of hx with l,m = 2,1
+.br
+hx20          # spin weighted (s=-2) spherical decomposition of hx with l,m = 2,0
+.br
+hx2m1         # spin weighted (s=-2) spherical decomposition of hx with l,m = 2,-1
+.br
+hx2m2         # spin weighted (s=-2) spherical decomposition of hx with l,m = 2,-2
+
+.P 
+Before changing the values of the configuration variables in the .ini file it is useful to 
+keep in mind that there are various redundancies among them. To have a consistent set of 
+configuration variables some of them should be deduced from the others. The sample perl script 
+below is to indicate the associated redundancy:
+.IP
+
+$fmin=1;
+.br
+$r=(($SI_c/2./$PI/$fmin)**2.*($m1+$m2) )**(1./3.);
+.br
+$T = 2*$PI*sqrt($r**3./($m1+$m2))/$SI_c;
+.br
+$f = 1/$T;
+.br
+$dt = $T/(1e4);
+
+.P
+These generated values can be written out to the .ini file. An example .ini file generator \
+can be found in the examples directory.
+
+.SH EXAMPLES
+To run the program simply type:
+.IP
+cbwaves cbwaves.ini
+
+.SH BATCH SUBMISSION
+The examples/cbwgen.pl perl executable is an example script which demonstrates how to
+generate .ini files and .des files for submission to condor clusters. The generated
+job description files can be submitted to condor clusters by launchin the command:
+.IP
+condor_submit <name of .des file>
+
+.SH DISCLAIMER
+The cbwaves software provided as is, with our best knowledge incorporated into the code. 
+The code has been justified to be 4th order accurate. Please feel free to use it but do 
+not forget to refer to "cbwaves". Contact us if you had related questions or if you needed 
+assistance in applying it.
+"We defer any responsibility concerning damage, collision or explosion of black holes and 
+neutron stars :-)"
+
+.SH BUGS, KNOWN ISSUES
+
+In the current version the motion is taken into account up to 3.5 PN order, while the
+waveforms are determined up to 2 PN order. Higher order post-Newtonian corrections 
+are added continually.
+
+
+.SH AUTHORS
+The cbwaves software is a product of the RMKI Virgo Group, http//:virgo.rmki.kfki.hu
+
+.br
+Peter Csizmadia+
+.br
+Matyas Vasuth      (Vasuth.Matyas@wigner.mta.hu)
+.br
+Istvan Racz        (Racz.Istvan@wigner.mta.hu)
+.br
+Gergely Debreczeni (Debreczeni.Gergely@wigner.mta.hu)
+
+.SH CONTACT
+To contact the maintainers or send patches please us the following email address:
+
+.IP
+cbwaves@rmki.kfki.hu
+

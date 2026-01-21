@@ -1,0 +1,18 @@
+Building and installing this software you have to launch the following commands:
+
+cd src
+make
+make install
+
+To create a tarball:
+
+cd src
+make tgz
+
+To create an rpm:
+
+cd src
+make rpm
+
+
+ 

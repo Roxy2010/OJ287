@@ -1,0 +1,39 @@
+1.2.0-2 (2013/10/07)
+ o determination of initial eccentricity is improved (bug 
+   submitted by Tanner Prestegard and Marie Anne Bizouard)
+ o 2PNSO acceleration, energy and spin-precession added
+
+1.1.0-1 (2012/09/20)
+ o adaptive time step is configurable
+ o all the available PN order is implemented
+ o documentation improved
+ o publication is accepted
+ o configuration variable for open orbit added (rmax)
+
+1.0.0-6 (2011/12/08)
+ o typo fixed in cbwaves.cxx
+ o all the possible hterm added to the example file, cbwgen.pl
+
+1.0.0-5 (2011/11/17)
+ o initital conditions for high eccentricity binaries are
+   determined better (bug submitted by Marie Anne Bizouard)
+ o variables outputted only once even when printstep and
+   printorbit is defined (bug submitted by Marie Anne
+   Bizouard)
+ o basic logging facility added, will be extended later
+
+1.0.0-4
+ o man page extended/corrected
+ o cbwaves-desc.pdf extended, new figures, explanations
+
+1.0.0-3
+ o dependency for boost-devel fixed in spec file
+
+1.0.0-2
+ o 'printstep' configuration variable added
+ o 'printorbit' configuration variable added
+ o initial eccentricity is set with high precision (0.1 %)
+ o cbwaves-desc.pdf file upgraded   
+
+1.0.0-1
+ o First public release
