@@ -399,21 +399,7 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     jd_range = jd_max - jd_min
     ax.set_xlim(jd_min - 0.02 * jd_range, jd_max + 0.02 * jd_range)
     
-    # Plot vertical lines for model disk crossings (all green)
-    crossing_color = '#00ff00'  # Bright green for all crossings
-    
-    t0_plotted = False
-    for c in crossings:
-        t_cross = c['jd']
-        if jd_min - 0.1 * jd_range <= t_cross <= jd_max + 0.1 * jd_range:
-            if abs(t_cross - T0_JD) < 1:  # Reference epoch t₀ (thicker line)
-                ax.axvline(x=t_cross, color=crossing_color, linestyle='-', 
-                          linewidth=3.5, alpha=0.95, zorder=2)
-                t0_plotted = True
-            else:
-                # All other crossings - same green color
-                ax.axvline(x=t_cross, color=crossing_color, linestyle='-', 
-                          linewidth=2.0, alpha=0.7, zorder=2)
+  
     
     # Add secondary x-axis with calendar years
     ax2 = ax.secondary_xaxis('top', functions=(jd_to_calendar, calendar_to_jd))
@@ -431,8 +417,7 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     # Labels and title
     ax.set_xlabel('Юліанська дата (JD)', fontsize=14, color='black', fontweight='bold')
     ax.set_ylabel(f'Магнітуда ({filter_name})', fontsize=14, color='black', fontweight='bold')
-    ax.set_title(f'Крива блиску OJ 287 — Фільтр: {filter_name}\n'
-                f'Модельні моменти проходження акреційного диска (t₀ = JD {T0_JD:.3f})', 
+    ax.set_title(f'Крива блиску OJ 287 — Фільтр: {filter_name}\n', 
                 fontsize=16, color='black', fontweight='bold', pad=20)
     
     # Grid
@@ -442,13 +427,10 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     # Legend
     legend_elements = [
         Line2D([0], [0], marker='o', color='w', markerfacecolor='#ff6600', 
-               markersize=10, label='Магнітуда (стовп. 2)', linestyle='None'),
+               markersize=10, label='Вікова крива блиску з даних AAVSO', linestyle='None'),
         Line2D([0], [0], marker='o', color='w', markerfacecolor='#87CEEB', 
-               markersize=10, label='Магнітуда (стовп. 3)', linestyle='None'),
-        Line2D([0], [0], color='#00ff00', linewidth=3.0, 
-               label=f't₀ = JD {T0_JD:.3f}'),
-        Line2D([0], [0], color='#00ff00', linewidth=2.0, linestyle='-',
-               label='Проходження диска'),
+               markersize=10, label='Власна фотометрія', linestyle='None'),
+       
     ]
     legend = ax.legend(handles=legend_elements, loc='upper right', 
                       fontsize=10, facecolor='white', edgecolor='black',
