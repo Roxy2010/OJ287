@@ -377,11 +377,11 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     # Стовпчик 2 (mag1 в коді) - помаранчева
     valid_mag1 = ~np.isnan(mag1_sorted)
     ax.scatter(jd_sorted[valid_mag1], mag1_sorted[valid_mag1], c='#ff6600', s=25, alpha=0.8, 
-               edgecolors='black', linewidths=0.3, label='Стовпчик 2', zorder=3)
+               edgecolors='black', linewidths=0.3, label='Вікова крива блиску з даних AAVSO', zorder=3)
     # Стовпчик 3 (mag2 в коді) - ніжно голубий, малюється зверху
     valid_mag2 = ~np.isnan(mag2_sorted)
     ax.scatter(jd_sorted[valid_mag2], mag2_sorted[valid_mag2], c='#87CEEB', s=30, alpha=0.9, 
-               edgecolors='black', linewidths=0.4, label='Стовпчик 3', zorder=4)
+               edgecolors='black', linewidths=0.4, label='Власна фотометрія', zorder=4)
     
     # Invert y-axis (standard for magnitude plots: brighter = smaller magnitude = higher on plot)
     ax.invert_yaxis()
@@ -409,8 +409,7 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     # Labels and title
     ax.set_xlabel('Юліанська дата (JD)', fontsize=14, color='black', fontweight='bold')
     ax.set_ylabel(f'Магнітуда ({filter_name})', fontsize=14, color='black', fontweight='bold')
-    ax.set_title(f'Крива блиску OJ 287 — Фільтр: {filter_name}\n'
-                f'Модельні моменти проходження акреційного диска (t₀ = JD {T0_JD:.3f})', 
+    ax.set_title(f'Крива блиску OJ 287 — Фільтр: {filter_name}\n', 
                 fontsize=16, color='black', fontweight='bold', pad=20)
     
     # Grid
@@ -420,13 +419,9 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     # Legend
     legend_elements = [
         Line2D([0], [0], marker='o', color='w', markerfacecolor='#ff6600', 
-               markersize=10, label='Магнітуда (стовп. 2)', linestyle='None'),
+               markersize=10, label='Вікова крива блиску з даних AAVSO', linestyle='None'),
         Line2D([0], [0], marker='o', color='w', markerfacecolor='#87CEEB', 
-               markersize=10, label='Магнітуда (стовп. 3)', linestyle='None'),
-        Line2D([0], [0], color='#00ff00', linewidth=3.0, 
-               label=f't₀ = JD {T0_JD:.3f}'),
-        Line2D([0], [0], color='#00ff00', linewidth=2.0, linestyle='-',
-               label='Проходження диска'),
+               markersize=10, label='Власна фотометрія', linestyle='None'),
     ]
     legend = ax.legend(handles=legend_elements, loc='upper right', 
                       fontsize=10, facecolor='white', edgecolor='black',

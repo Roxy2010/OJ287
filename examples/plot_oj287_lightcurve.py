@@ -445,10 +445,7 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
                markersize=10, label='Магнітуда (стовп. 2)', linestyle='None'),
         Line2D([0], [0], marker='o', color='w', markerfacecolor='#87CEEB', 
                markersize=10, label='Магнітуда (стовп. 3)', linestyle='None'),
-        Line2D([0], [0], color='#00ff00', linewidth=3.0, 
-               label=f't₀ = JD {T0_JD:.3f}'),
-        Line2D([0], [0], color='#00ff00', linewidth=2.0, linestyle='-',
-               label='Проходження диска'),
+
     ]
     legend = ax.legend(handles=legend_elements, loc='upper right', 
                       fontsize=10, facecolor='white', edgecolor='black',
