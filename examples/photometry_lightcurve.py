@@ -376,11 +376,11 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     # Plot photometric data with different colors
     # Стовпчик 2 (mag1 в коді) - помаранчева
     valid_mag1 = ~np.isnan(mag1_sorted)
-    ax.scatter(jd_sorted[valid_mag1], mag1_sorted[valid_mag1], c='#ff6600', s=25, alpha=0.8, 
+    ax.scatter(jd_sorted[valid_mag1], mag1_sorted[valid_mag1], c='#ffb700', s=25, alpha=0.8, 
                edgecolors='black', linewidths=0.3, label='Вікова крива блиску з даних AAVSO', zorder=3)
     # Стовпчик 3 (mag2 в коді) - ніжно голубий, малюється зверху
     valid_mag2 = ~np.isnan(mag2_sorted)
-    ax.scatter(jd_sorted[valid_mag2], mag2_sorted[valid_mag2], c='#000dff', s=30, alpha=0.9, 
+    ax.scatter(jd_sorted[valid_mag2], mag2_sorted[valid_mag2], c='#fc0303', s=60, alpha=0.9, 
                edgecolors='black', linewidths=0.4, label='Власна фотометрія', zorder=4)
     
     # Invert y-axis (standard for magnitude plots: brighter = smaller magnitude = higher on plot)
@@ -418,9 +418,9 @@ def plot_lightcurve(jd, mag1, mag2, filter_name, crossings, output_file='OJ287_l
     
     # Legend
     legend_elements = [
-        Line2D([0], [0], marker='o', color='w', markerfacecolor='#ff6600', 
+        Line2D([0], [0], marker='o', color='w', markerfacecolor='#ffb700', 
                markersize=10, label='Вікова крива блиску з даних AAVSO', linestyle='None'),
-        Line2D([0], [0], marker='o', color='w', markerfacecolor='#000dff', 
+        Line2D([0], [0], marker='o', color='w', markerfacecolor='#fc0303', 
                markersize=10, label='Власна фотометрія', linestyle='None'),
     ]
     legend = ax.legend(handles=legend_elements, loc='upper right', 
