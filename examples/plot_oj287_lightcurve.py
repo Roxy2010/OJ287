@@ -47,7 +47,7 @@ plt.rc('ytick', labelsize=12)
 #! ============================================
 #! REFERENCE EPOCH - First observed outburst peak (t₀)
 #! ============================================
-T0_JD = 2454145.455  # Reference epoch: first disk crossing (2007.0)
+T0_JD = 2445385.33  # Reference epoch: first disk crossing (2007.0)
 
 #! ============================================
 #! PATH TO RESULTS FILE FROM PRECESSION MODEL
@@ -91,7 +91,7 @@ def parse_disk_crossings_from_results(filepath):
     Parse disk crossing events from results.txt file.
     
     The results.txt contains crossing times in years from simulation start.
-    We map the FIRST crossing to t₀ = JD 2454145.455, then calculate
+    We map the FIRST crossing to t₀ = JD 2445385.33, then calculate
     all other crossings relative to it.
     
     Parameters:
@@ -146,7 +146,7 @@ def parse_disk_crossings_from_results(filepath):
     if not raw_crossings:
         return []
     
-    # IMPORTANT: Map first crossing to t₀ = JD 2454145.455
+    # IMPORTANT: Map first crossing to t₀ = JD 2445385.33
     # All other crossings are calculated relative to this
     first_crossing_time = raw_crossings[0]['time_years']
     
@@ -172,7 +172,7 @@ def calculate_disk_crossings_analytical(num_crossings=30):
     when results.txt is not available.
     
     Uses typical OJ 287 orbital parameters (~12 year period).
-    First crossing is at t₀ = JD 2454145.455.
+    First crossing is at t₀ = JD 2445385.33.
     
     Parameters:
     -----------
